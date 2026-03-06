@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Normalizar Sprints</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #1e1e1e;
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+
+  .card {
+    background: #272727;
+    border-radius: 20px;
+    padding: 48px 52px;
+    width: 100%;
+    max-width: 580px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.4);
+  }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #D4AF37;
+    margin-bottom: 8px;
+  }
+
+  .subtitle {
+    font-size: 0.9rem;
+    color: #888;
+    margin-bottom: 36px;
+    line-height: 1.5;
+  }
+
+  /* Drop zone */
+  .dropzone {
+    border: 2px dashed #444;
+    border-radius: 14px;
+    padding: 40px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    margin-bottom: 28px;
+  }
+  .dropzone:hover, .dropzone.dragover {
+    border-color: #D4AF37;
+    background: rgba(212,175,55,0.05);
+  }
+  .dropzone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+  .dropzone-icon {
+    font-size: 2.4rem;
+    margin-bottom: 12px;
+  }
+  .dropzone-text {
+    color: #aaa;
+    font-size: 0.9rem;
+  }
+  .dropzone-text strong {
+    color: #D4AF37;
+  }
+  .file-name {
+    margin-top: 10px;
+    font-size: 0.82rem;
+    color: #D4AF37;
+    font-weight: 500;
+  }
+
+  /* Column selector */
+  .field-group {
+    margin-bottom: 24px;
+    display: none;
+  }
+  .field-group.visible { display: block; }
+
+  label {
+    display: block;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #777;
+    margin-bottom: 8px;
+  }
+
+  select {
+    width: 100%;
+    background: #333;
+    border: 1px solid #444;
+    border-radius: 10px;
+    color: #f0f0f0;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    padding: 12px 16px;
+    appearance: none;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  select:focus { border-color: #D4AF37; }
+
+  /* Info box */
+  .info-box {
+    background: #1e1e1e;
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 28px;
+    font-size: 0.82rem;
+    color: #888;
+    line-height: 1.6;
+    display: none;
+  }
+  .info-box.visible { display: block; }
+  .info-box span { color: #D4AF37; font-weight: 500; }
+
+  /* Button */
+  button {
+    width: 100%;
+    background: #D4AF37;
+    color: #1a1a1a;
+    border: none;
+    border-radius: 12px;
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: none;
+  }
+  button.visible { display: block; }
+  button:hover { background: #e8c84a; transform: translateY(-1px); }
+  button:active { transform: translateY(0); }
+  button:disabled { background: #555; color: #888; cursor: not-allowed; transform: none; }
+
+  /* Result */
+  .result {
+    margin-top: 24px;
+    padding: 16px 20px;
+    border-radius: 12px;
+    font-size: 0.88rem;
+    display: none;
+    align-items: center;
+    gap: 12px;
+  }
+  .result.success {
+    display: flex;
+    background: rgba(80,200,120,0.1);
+    border: 1px solid rgba(80,200,120,0.3);
+    color: #6dde9a;
+  }
+  .result.error {
+    display: flex;
+    background: rgba(220,80,80,0.1);
+    border: 1px solid rgba(220,80,80,0.3);
+    color: #f08080;
+  }
+  .result-icon { font-size: 1.3rem; flex-shrink: 0; }
+
+  .stats {
+    margin-top: 6px;
+    font-size: 0.78rem;
+    opacity: 0.75;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Normalizar Sprints</h1>
+  <p class="subtitle">Sube tu Excel y cada fila con múltiples sprints se dividirá en una fila por sprint, manteniendo todos los demás datos.</p>
+
+  <!-- Drop zone -->
+  <div class="dropzone" id="dropzone">
+    <input type="file" id="fileInput" accept=".xlsx,.xls" />
+    <div class="dropzone-icon">📂</div>
+    <div class="dropzone-text">
+      <strong>Haz clic o arrastra</strong> tu archivo Excel aquí<br>
+      <small style="color:#666; margin-top:4px; display:block;">.xlsx o .xls</small>
+    </div>
+    <div class="file-name" id="fileName"></div>
+  </div>
+
+  <!-- Column selector -->
+  <div class="field-group" id="colGroup">
+    <label>Columna a normalizar</label>
+    <select id="colSelect"></select>
+  </div>
+
+  <!-- Info -->
+  <div class="info-box" id="infoBox"></div>
+
+  <!-- Button -->
+  <button id="processBtn" class="visible" style="display:none" onclick="processFile()">
+    ⬇ Descargar Excel Normalizado
+  </button>
+
+  <!-- Result -->
+  <div class="result" id="result">
+    <span class="result-icon"></span>
+    <div>
+      <div id="resultMsg"></div>
+      <div class="stats" id="resultStats"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let workbook = null;
+  let originalFileName = '';
+  let parsedData = [];
+  let headers = [];
+
+  const fileInput = document.getElementById('fileInput');
+  const dropzone = document.getElementById('dropzone');
+  const fileName = document.getElementById('fileName');
+  const colGroup = document.getElementById('colGroup');
+  const colSelect = document.getElementById('colSelect');
+  const infoBox = document.getElementById('infoBox');
+  const processBtn = document.getElementById('processBtn');
+  const result = document.getElementById('result');
+
+  // Drag events
+  dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+
+  fileInput.addEventListener('change', e => {
+    if (e.target.files[0]) handleFile(e.target.files[0]);
+  });
+
+  colSelect.addEventListener('change', updateInfo);
+
+  function handleFile(file) {
+    originalFileName = file.name.replace(/\.(xlsx|xls)$/i, '');
+    fileName.textContent = '📄 ' + file.name;
+
+    const reader = new FileReader();
+    reader.onload = e => {
+      workbook = XLSX.read(e.target.result, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      parsedData = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+      headers = parsedData.length > 0 ? Object.keys(parsedData[0]) : [];
+
+      // Populate select
+      colSelect.innerHTML = headers.map(h =>
+        `<option value="${h}" ${h.toLowerCase().includes('sprint') ? 'selected' : ''}>${h}</option>`
+      ).join('');
+
+      colGroup.classList.add('visible');
+      processBtn.classList.add('visible');
+      processBtn.style.display = 'block';
+      updateInfo();
+      hideResult();
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function updateInfo() {
+    const col = colSelect.value;
+    if (!col || parsedData.length === 0) return;
+
+    // Count rows that have multiple values
+    const multiCount = parsedData.filter(row => {
+      const val = String(row[col] || '');
+      return val.includes(',');
+    }).length;
+
+    const totalExpanded = parsedData.reduce((acc, row) => {
+      const val = String(row[col] || '');
+      return acc + (val ? val.split(',').length : 1);
+    }, 0);
+
+    infoBox.innerHTML = `
+      Columna seleccionada: <span>${col}</span><br>
+      Filas originales: <span>${parsedData.length}</span> &nbsp;·&nbsp;
+      Filas con múltiples valores: <span>${multiCount}</span><br>
+      Filas resultantes tras normalizar: <span>${totalExpanded}</span>
+    `;
+    infoBox.classList.add('visible');
+  }
+
+  function processFile() {
+    const col = colSelect.value;
+    if (!parsedData.length || !col) return;
+
+    processBtn.disabled = true;
+    processBtn.textContent = 'Procesando...';
+
+    try {
+      // Normalize
+      const normalized = [];
+      parsedData.forEach(row => {
+        const val = String(row[col] || '');
+        const parts = val.split(',').map(s => s.trim()).filter(Boolean);
+        if (parts.length === 0) {
+          normalized.push({ ...row });
+        } else {
+          parts.forEach(sprint => {
+            normalized.push({ ...row, [col]: sprint });
+          });
+        }
+      });
+
+      // Build new workbook
+      const newWb = XLSX.utils.book_new();
+      const newWs = XLSX.utils.json_to_sheet(normalized);
+      XLSX.utils.book_append_sheet(newWb, newWs, 'Normalizado');
+
+      const outName = `${originalFileName}_normalizado.xlsx`;
+      XLSX.writeFile(newWb, outName);
+
+      showResult('success',
+        `✅ Archivo generado: <strong>${outName}</strong>`,
+        `${parsedData.length} filas originales → ${normalized.length} filas normalizadas`
+      );
+    } catch (err) {
+      showResult('error', '❌ Error al procesar el archivo', err.message);
+    }
+
+    processBtn.disabled = false;
+    processBtn.textContent = '⬇ Descargar Excel Normalizado';
+  }
+
+  function showResult(type, msg, stats) {
+    result.className = `result ${type}`;
+    result.querySelector('.result-icon').textContent = type === 'success' ? '✅' : '❌';
+    document.getElementById('resultMsg').innerHTML = msg;
+    document.getElementById('resultStats').textContent = stats || '';
+    result.style.display = 'flex';
+  }
+
+  function hideResult() {
+    result.style.display = 'none';
+  }
+</script>
+</body>
+</html>
